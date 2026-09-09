@@ -13,7 +13,7 @@ jobs:
           submodules: true
 
       - name: Install Geode CLI
-        run: cargo install geode-cli --locked
+        run: cargo install --git https://github.com/geode-sdk/cli --locked
 
       - name: Setup Geode SDK
         run: geode sdk install-binaries
