@@ -19,14 +19,21 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
-          geode profile add --name ci "C:\temp\gd" Win64
+          geode profile add --help
+          geode sdk install --help
+          geode sdk install-binaries --help
+          # Try different platform casings
+          geode profile add "C:\temp\gd" --name ci --platform win64
+          if ($LASTEXITCODE -ne 0) { geode profile add "C:\temp\gd" --name ci --platform windows }
+          if ($LASTEXITCODE -ne 0) { geode profile add --name ci "C:\temp\gd" win64 }
           Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
-          geode sdk install --platform Win64
-          if ($LASTEXITCODE -ne 0) { geode sdk install }
-          geode sdk install-binaries --platform Win64
-          if ($LASTEXITCODE -ne 0) { geode sdk install-binaries }
+          # Install SDK non-interactively (answer y)
+          echo y | geode sdk install
+          if ($LASTEXITCODE -ne 0) { echo y | geode sdk install "C:\Users\runneradmin\Documents\Geode" }
+          echo y | geode sdk install-binaries
           Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
           Get-ChildItem "$env:USERPROFILE\.geode" -Recurse -ErrorAction SilentlyContinue | Format-List
+          Get-ChildItem "C:\Users\runneradmin\Documents\Geode" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName -First 20 | Format-List
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
