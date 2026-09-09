@@ -15,10 +15,26 @@ jobs:
       - name: Install Geode CLI
         run: cargo install --git https://github.com/geode-sdk/cli --locked
 
-      - name: Setup Geode SDK
+      - name: Setup Geode SDK (create dummy profile for CI)
+        shell: powershell
         run: |
-          geode config setup --non-interactive || geode config setup
+          New-Item -ItemType Directory -Force -Path "$env:APPDATA\Geode" | Out-Null
+          @'
+          {
+            "profiles": [
+              {
+                "name": "ci",
+                "path": "C:\temp\gd",
+                "executable": "GeometryDash.exe"
+              }
+            ]
+          }
+          '@ | Set-Content -Path "$env:APPDATA\Geode\config.json" -Encoding utf8
+          New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
+          Get-Content "$env:APPDATA\Geode\config.json"
           geode sdk install-binaries
+          geode sdk list
+          Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
