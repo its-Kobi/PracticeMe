@@ -12,10 +12,10 @@ void RecordingOverlay::show(){
     float sz=10.f; float m=12.f;
     std::string pos = KRecorderSettings::getOverlayPosition();
     cocos2d::CCPoint p;
-    if(pos=="top-left") p={m+sz/2, win.height - m - sz/2};
-    else if(pos=="bottom-left") p={m+sz/2, m+sz/2};
-    else if(pos=="bottom-right") p={win.width - m - sz/2, m+sz/2};
-    else p={win.width - m - sz/2, win.height - m - sz/2};
+    if(pos=="top-left") p = cocos2d::CCPoint(m+sz/2, win.height - m - sz/2);
+    else if(pos=="bottom-left") p = cocos2d::CCPoint(m+sz/2, m+sz/2);
+    else if(pos=="bottom-right") p = cocos2d::CCPoint(win.width - m - sz/2, m+sz/2);
+    else p = cocos2d::CCPoint(win.width - m - sz/2, win.height - m - sz/2);
     m_dot = cocos2d::CCLayerColor::create(cocos2d::ccc4(255,0,0,255), sz, sz);
     // circle via shader not needed, small rect with rounded via sprite would be nicer
     m_dot->setPosition(p - ccp(sz/2,sz/2));

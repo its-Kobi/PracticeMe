@@ -11,7 +11,9 @@
 #pragma comment(lib,"d3d11.lib")
 #pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"gdi32.lib")
+#endif
 
+#ifdef _WIN32
 // Find Geometry Dash window - GLFW title is "Geometry Dash"
 static HWND findGDWindow() {
     HWND hwnd = FindWindowA(nullptr, "Geometry Dash");
@@ -35,6 +37,7 @@ static std::wstring toWide(const std::string& s) {
     if (!w.empty() && w.back() == L'\0') w.pop_back();
     return w;
 }
+#endif
 
 class DesktopDuplication : public IFrameCapture {
 public:

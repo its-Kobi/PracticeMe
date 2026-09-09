@@ -1,4 +1,5 @@
 #include <Geode/Geode.hpp>
+#include <Geode/modify/CCDirector.hpp>
 #include "Settings.hpp"
 #include "RecordingManager.hpp"
 #include "Overlay.hpp"

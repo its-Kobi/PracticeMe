@@ -17,7 +17,7 @@ bool RecordingManager::start(){
     std::string dir = KRecorderSettings::getOutputDir();
     if(dir.empty()) dir = FileUtils::getDefaultOutputDir();
     if(!FileUtils::ensureDir(dir)){ m_lastError="Cannot create output dir: "+dir; geode::log::error("{}",m_lastError); return false; }
-    if(!FileUtils::hasEnoughSpace(dir, 50ULL*1024*1024)){ m_lastError="Insufficient disk space"; geode::Notification::create("KRecorder: not enough disk space", geode::Notification::Icon::Error)->show(); return false; }
+    if(!FileUtils::hasEnoughSpace(dir, 50ULL*1024*1024)){ m_lastError="Insufficient disk space"; geode::Notification::create("KRecorder: not enough disk space", geode::NotificationIcon::Error)->show(); return false; }
     std::string file = dir + "\\" + FileUtils::generateFilename();
     int w = KRecorderSettings::getWidth();
     int h = KRecorderSettings::getHeight();
@@ -34,7 +34,7 @@ bool RecordingManager::start(){
     if(!m_capture->init(w,h)){
         m_lastError="Capture init failed";
         geode::log::error("KRecorder: Capture initialized FAILED");
-        geode::Notification::create("KRecorder: capture init failed", geode::Notification::Icon::Error)->show();
+        geode::Notification::create("KRecorder: capture init failed", geode::NotificationIcon::Error)->show();
         m_capture.reset();
         return false;
     }
@@ -43,7 +43,7 @@ bool RecordingManager::start(){
     m_encoder = std::make_unique<WMFEncoder>();
     if(!m_encoder->configure(w,h,fps,br,file)){
         m_lastError="Encoder init failed";
-        geode::Notification::create("KRecorder: encoder failed", geode::Notification::Icon::Error)->show();
+        geode::Notification::create("KRecorder: encoder failed", geode::NotificationIcon::Error)->show();
         m_capture->shutdown(); m_capture.reset();
         m_encoder.reset();
         return false;
@@ -56,7 +56,7 @@ bool RecordingManager::start(){
     m_thread = std::thread(&RecordingManager::worker, this);
     m_state=RecState::Recording;
     RecordingOverlay::get().show();
-    geode::Notification::create("KRecorder: recording started", geode::Notification::Icon::Success)->show();
+    geode::Notification::create("KRecorder: recording started", geode::NotificationIcon::Success)->show();
     geode::log::info("KRecorder: Recording started -> {}", file);
     return true;
 }
