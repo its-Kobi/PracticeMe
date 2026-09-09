@@ -19,14 +19,9 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
-          # Try non-interactive profile creation (geode CLI expects input)
-          $input = "ci`nC:\temp\gd`n`n"
-          $input | geode config setup
+          geode profile add --name ci "C:\temp\gd" Win64
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "config setup failed, trying profile add"
-            geode profile add --help
-            # fallback: try geode profile new if exists
-            "ci`nC:\temp\gd`n" | geode profile add 2>&1 | Out-String | Write-Host
+            geode profile add --name ci "C:\temp\gd"
           }
           Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
           Get-ChildItem "$env:APPDATA\Geode" -Recurse -ErrorAction SilentlyContinue | Format-List
