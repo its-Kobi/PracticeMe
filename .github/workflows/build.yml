@@ -37,14 +37,18 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: Configure
-        env:
-          GEODE_SDK: C:\Users\runneradmin\Documents\Geode
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
+        shell: powershell
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl 2>&1 | Out-String -Width 800 | Tee-Object -FilePath cmake.log
+          Get-Content cmake.log | Select-Object -First 200
+          Write-Host "=== _deps ==="
+          Get-ChildItem build/_deps -ErrorAction SilentlyContinue | Format-List
+          Write-Host "=== cmake log tail ==="
+          Get-Content cmake.log | Select-Object -Last 100
 
       - name: Build
-        env:
-          GEODE_SDK: C:\Users\runneradmin\Documents\Geode
         run: cmake --build build --config Release
+
 
       - name: Find geode file
         run: Get-ChildItem -Recurse -Filter "*.geode" build | Select-Object FullName, Length | Format-List
