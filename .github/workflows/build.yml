@@ -15,25 +15,22 @@ jobs:
       - name: Install Geode CLI
         run: cargo install --git https://github.com/geode-sdk/cli --locked
 
-      - name: Setup Geode SDK (create dummy profile for CI)
+      - name: Setup Geode SDK (CI profile)
         shell: powershell
         run: |
-          New-Item -ItemType Directory -Force -Path "$env:APPDATA\Geode" | Out-Null
-          @'
-          {
-            "profiles": [
-              {
-                "name": "ci",
-                "path": "C:\temp\gd",
-                "executable": "GeometryDash.exe"
-              }
-            ]
-          }
-          '@ | Set-Content -Path "$env:APPDATA\Geode\config.json" -Encoding utf8
           New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
-          Get-Content "$env:APPDATA\Geode\config.json"
+          # Try non-interactive profile creation (geode CLI expects input)
+          $input = "ci`nC:\temp\gd`n`n"
+          $input | geode config setup
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "config setup failed, trying profile add"
+            geode profile add --help
+            # fallback: try geode profile new if exists
+            "ci`nC:\temp\gd`n" | geode profile add 2>&1 | Out-String | Write-Host
+          }
+          Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
+          Get-ChildItem "$env:APPDATA\Geode" -Recurse -ErrorAction SilentlyContinue | Format-List
           geode sdk install-binaries
-          geode sdk list
           Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
 
       - name: Configure
