@@ -1,0 +1,36 @@
+name: Build KRecorder
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Geode CLI
+        run: cargo install geode-cli --locked
+
+      - name: Setup Geode SDK
+        run: geode sdk install-binaries
+
+      - name: Configure
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Find geode file
+        run: Get-ChildItem -Recurse -Filter "*.geode" build | Select-Object FullName, Length | Format-List
+        shell: powershell
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KRecorder-geode
+          path: build/**/*.geode
+          if-no-files-found: error
