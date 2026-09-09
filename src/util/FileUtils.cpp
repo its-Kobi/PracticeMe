@@ -11,7 +11,7 @@ std::string FileUtils::getDefaultOutputDir(){
 #ifdef _WIN32
     PWSTR p=nullptr;
     // Primary: Desktop (user request)
-    if(SHGetKnownFolderPath(FOLDERID_Desktop,nullptr,nullptr,&p)==S_OK){
+    if(SHGetKnownFolderPath(FOLDERID_Desktop,0,nullptr,&p)==S_OK){
         std::wstring ws(p); CoTaskMemFree(p);
         std::string s(ws.begin(), ws.end());
         s += "\\KRecorder_Recordings";
@@ -19,7 +19,7 @@ std::string FileUtils::getDefaultOutputDir(){
         return s;
     }
     p=nullptr;
-    if(SHGetKnownFolderPath(FOLDERID_Videos,nullptr,nullptr,&p)==S_OK){
+    if(SHGetKnownFolderPath(FOLDERID_Videos,0,nullptr,&p)==S_OK){
         std::wstring ws(p); CoTaskMemFree(p);
         std::string s(ws.begin(), ws.end());
         return s + "\\KRecorder_Recordings";
