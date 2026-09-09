@@ -20,13 +20,13 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
           geode profile add --name ci "C:\temp\gd" Win64
-          if ($LASTEXITCODE -ne 0) {
-            geode profile add --name ci "C:\temp\gd"
-          }
           Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
-          Get-ChildItem "$env:APPDATA\Geode" -Recurse -ErrorAction SilentlyContinue | Format-List
-          geode sdk install-binaries
+          geode sdk install --platform Win64
+          if ($LASTEXITCODE -ne 0) { geode sdk install }
+          geode sdk install-binaries --platform Win64
+          if ($LASTEXITCODE -ne 0) { geode sdk install-binaries }
           Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
+          Get-ChildItem "$env:USERPROFILE\.geode" -Recurse -ErrorAction SilentlyContinue | Format-List
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
