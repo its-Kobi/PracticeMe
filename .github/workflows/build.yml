@@ -33,10 +33,13 @@ jobs:
           geode sdk install-binaries
           Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
 
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
       - name: Configure
         env:
           GEODE_SDK: C:\Users\runneradmin\Documents\Geode
-        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
 
       - name: Build
         env:
