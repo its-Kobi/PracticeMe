@@ -27,18 +27,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { geode profile add "C:\temp\gd" --name ci --platform windows }
           if ($LASTEXITCODE -ne 0) { geode profile add --name ci "C:\temp\gd" win64 }
           Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
-          # Install SDK non-interactively (answer y)
-          echo y | geode sdk install
-          if ($LASTEXITCODE -ne 0) { echo y | geode sdk install "C:\Users\runneradmin\Documents\Geode" }
-          echo y | geode sdk install-binaries
+          # Install SDK non-interactively (answer y) - already done, now set env for this session
+          $env:GEODE_SDK = "C:\Users\runneradmin\Documents\Geode"
+          echo "GEODE_SDK=C:\Users\runneradmin\Documents\Geode" >> $env:GITHUB_ENV
+          echo "GEODE_SDK is $env:GEODE_SDK"
+          geode sdk install-binaries
+          if ($LASTEXITCODE -ne 0) { geode sdk install-binaries -p win64 }
           Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
           Get-ChildItem "$env:USERPROFILE\.geode" -Recurse -ErrorAction SilentlyContinue | Format-List
           Get-ChildItem "C:\Users\runneradmin\Documents\Geode" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName -First 20 | Format-List
 
       - name: Configure
+        env:
+          GEODE_SDK: C:\Users\runneradmin\Documents\Geode
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
+        env:
+          GEODE_SDK: C:\Users\runneradmin\Documents\Geode
         run: cmake --build build --config Release
 
       - name: Find geode file
