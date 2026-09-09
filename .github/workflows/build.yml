@@ -19,23 +19,21 @@ jobs:
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
-          geode profile add --help
-          geode sdk install --help
-          geode sdk install-binaries --help
-          # Try different platform casings
-          geode profile add "C:\temp\gd" --name ci --platform win64
-          if ($LASTEXITCODE -ne 0) { geode profile add "C:\temp\gd" --name ci --platform windows }
-          if ($LASTEXITCODE -ne 0) { geode profile add --name ci "C:\temp\gd" win64 }
+          # Correct positional syntax: profile add --name <NAME> <LOCATION> [PLATFORM]
+          geode profile add --name ci "C:\temp\gd" win64
+          if ($LASTEXITCODE -ne 0) { geode profile add --name ci "C:\temp\gd" windows }
+          if ($LASTEXITCODE -ne 0) { geode profile add --name ci "C:\temp\gd" }
           Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
-          # Install SDK non-interactively (answer y) - already done, now set env for this session
+          # SDK already installed at C:\Users\runneradmin\Documents\Geode from previous run, just set env
           $env:GEODE_SDK = "C:\Users\runneradmin\Documents\Geode"
           echo "GEODE_SDK=C:\Users\runneradmin\Documents\Geode" >> $env:GITHUB_ENV
+          # Ensure SDK path is registered with CLI
+          geode sdk set-path "C:\Users\runneradmin\Documents\Geode"
           echo "GEODE_SDK is $env:GEODE_SDK"
+          Get-ChildItem "C:\Users\runneradmin\Documents\Geode" | Format-List
           geode sdk install-binaries
           if ($LASTEXITCODE -ne 0) { geode sdk install-binaries -p win64 }
           Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
-          Get-ChildItem "$env:USERPROFILE\.geode" -Recurse -ErrorAction SilentlyContinue | Format-List
-          Get-ChildItem "C:\Users\runneradmin\Documents\Geode" -Recurse -ErrorAction SilentlyContinue | Select-Object FullName -First 20 | Format-List
 
       - name: Configure
         env:
