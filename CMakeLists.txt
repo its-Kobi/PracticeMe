@@ -24,4 +24,4 @@ add_library(${PROJECT_NAME} SHARED
 )
 target_include_directories(${PROJECT_NAME} PRIVATE include src)
 setup_geode_mod(${PROJECT_NAME})
-target_link_libraries(${PROJECT_NAME} PRIVATE mf mfplat mfuuid wmcodecdspuuid strmiids d3d11 dxgi)
+target_link_libraries(${PROJECT_NAME} mf mfplat mfuuid wmcodecdspuuid strmiids d3d11 dxgi)

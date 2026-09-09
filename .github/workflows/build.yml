@@ -33,16 +33,8 @@ jobs:
           GEODE_SDK: C:\Users\runneradmin\Documents\Geode
         run: |
           New-Item -ItemType Directory -Force -Path "C:\temp\gd\geode\mods" | Out-Null
-          New-Item -ItemType Directory -Force -Path "C:\temp\gd\geode\config" -ErrorAction SilentlyContinue | Out-Null
           Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
-          geode build --platform windows 2>&1 | Tee-Object -FilePath geode_build.log | Out-String -Width 800 | Write-Host
-          $code = $LASTEXITCODE
-          Get-Content geode_build.log -ErrorAction SilentlyContinue | Select-Object -Last 200 | Write-Host
-          if ($code -ne 0) {
-            Write-Host "=== trying cmake fallback ==="
-            cmake -B build -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl 2>&1 | Write-Host
-            cmake --build build --config Release 2>&1 | Write-Host
-          }
+          geode build --platform windows
 
       - name: Find geode file
         shell: powershell
