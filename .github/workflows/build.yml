@@ -22,8 +22,10 @@ jobs:
           geode profile add --name ci "C:\temp\gd" windows
           if ($LASTEXITCODE -ne 0) { geode profile add --name ci "C:\temp\gd" win64 }
           Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
-          # Fresh runner has no SDK - install it non-interactively
-          echo y | geode sdk install
+          # Fresh runner has no SDK - install it with explicit path and --force to avoid y/N prompt
+          geode sdk install "C:\Users\runneradmin\Documents\Geode" --force
+          if ($LASTEXITCODE -ne 0) { echo "y" | geode sdk install "C:\Users\runneradmin\Documents\Geode" }
+          if ($LASTEXITCODE -ne 0) { echo y | geode sdk install }
           $env:GEODE_SDK = "C:\Users\runneradmin\Documents\Geode"
           echo "GEODE_SDK=C:\Users\runneradmin\Documents\Geode" >> $env:GITHUB_ENV
           echo "GEODE_SDK is $env:GEODE_SDK"
