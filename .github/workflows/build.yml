@@ -15,51 +15,31 @@ jobs:
       - name: Install Geode CLI
         run: cargo install --git https://github.com/geode-sdk/cli --locked
 
-      - name: Setup Geode SDK (CI profile)
+      - name: Setup Geode SDK
         shell: powershell
         run: |
           New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
           geode profile add --name ci "C:\temp\gd" windows
-          if ($LASTEXITCODE -ne 0) { geode profile add --name ci "C:\temp\gd" win64 }
-          Get-Content "$env:APPDATA\Geode\config.json" -ErrorAction SilentlyContinue | Write-Host
-          # Fresh runner has no SDK - install it with explicit path and --force to avoid y/N prompt
           geode sdk install "C:\Users\runneradmin\Documents\Geode" --force
-          if ($LASTEXITCODE -ne 0) { echo "y" | geode sdk install "C:\Users\runneradmin\Documents\Geode" }
-          if ($LASTEXITCODE -ne 0) { echo y | geode sdk install }
           $env:GEODE_SDK = "C:\Users\runneradmin\Documents\Geode"
           echo "GEODE_SDK=C:\Users\runneradmin\Documents\Geode" >> $env:GITHUB_ENV
-          echo "GEODE_SDK is $env:GEODE_SDK"
-          Get-ChildItem "C:\Users\runneradmin\Documents\Geode" | Format-List
           geode sdk install-binaries
-          Get-ChildItem "$env:APPDATA\Geode" -Recurse | Format-List
 
       - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Configure
-        shell: powershell
-        run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl 2>&1 | Tee-Object -FilePath cmake.log | Out-String -Width 800 | Write-Host
-          $code = $LASTEXITCODE
-          Write-Host "=== cmake exit code $code ==="
-          Get-Content cmake.log -ErrorAction SilentlyContinue | Select-Object -First 300 | Write-Host
-          Write-Host "=== _deps ==="
-          Get-ChildItem build -ErrorAction SilentlyContinue | Format-List
-          Get-ChildItem build/_deps -ErrorAction SilentlyContinue | Format-List
-          Get-ChildItem build/_deps/geode* -ErrorAction SilentlyContinue | Format-List
-          if ($code -ne 0) { exit $code }
-
-      - name: Build
-        run: cmake --build build --config Release
-
+      - name: Build with Geode CLI
+        env:
+          GEODE_SDK: C:\Users\runneradmin\Documents\Geode
+        run: geode build --platform windows
 
       - name: Find geode file
-        run: Get-ChildItem -Recurse -Filter "*.geode" build | Select-Object FullName, Length | Format-List
         shell: powershell
+        run: Get-ChildItem -Recurse -Filter "*.geode" | Select-Object FullName, Length | Format-List
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: KRecorder-geode
-          path: build/**/*.geode
+          path: "**/*.geode"
           if-no-files-found: error
