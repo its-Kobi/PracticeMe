@@ -39,12 +39,15 @@ jobs:
       - name: Configure
         shell: powershell
         run: |
-          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl 2>&1 | Out-String -Width 800 | Tee-Object -FilePath cmake.log
-          Get-Content cmake.log | Select-Object -First 200
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl 2>&1 | Tee-Object -FilePath cmake.log | Out-String -Width 800 | Write-Host
+          $code = $LASTEXITCODE
+          Write-Host "=== cmake exit code $code ==="
+          Get-Content cmake.log -ErrorAction SilentlyContinue | Select-Object -First 300 | Write-Host
           Write-Host "=== _deps ==="
+          Get-ChildItem build -ErrorAction SilentlyContinue | Format-List
           Get-ChildItem build/_deps -ErrorAction SilentlyContinue | Format-List
-          Write-Host "=== cmake log tail ==="
-          Get-Content cmake.log | Select-Object -Last 100
+          Get-ChildItem build/_deps/geode* -ErrorAction SilentlyContinue | Format-List
+          if ($code -ne 0) { exit $code }
 
       - name: Build
         run: cmake --build build --config Release
