@@ -5,7 +5,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64")
 set(CMAKE_CXX_VISIBILITY_PRESET hidden)
 include(cmake/CPM.cmake)
-CPMAddPackage("gh:geode-sdk/geode#v5.10.1")
+if(DEFINED ENV{GEODE_SDK} AND EXISTS "$ENV{GEODE_SDK}/CMakeLists.txt")
+  message(STATUS "Using GEODE_SDK at $ENV{GEODE_SDK}")
+  add_subdirectory($ENV{GEODE_SDK} ${CMAKE_BINARY_DIR}/geode)
+else()
+  CPMAddPackage("gh:geode-sdk/geode#v5.10.1")
+endif()
 add_library(${PROJECT_NAME} SHARED
     src/main.cpp
     src/Settings.cpp

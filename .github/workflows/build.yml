@@ -31,7 +31,14 @@ jobs:
       - name: Build with Geode CLI
         env:
           GEODE_SDK: C:\Users\runneradmin\Documents\Geode
-        run: geode build --platform windows
+        run: |
+          Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+          geode build --platform windows --clean 2>&1 | Out-String -Width 800 | Write-Host
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "geode build failed, trying cmake fallback"
+            cmake -B build -G Ninja -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl 2>&1 | Write-Host
+            cmake --build build --config Release 2>&1 | Write-Host
+          }
 
       - name: Find geode file
         shell: powershell
