@@ -16,7 +16,9 @@ jobs:
         run: cargo install --git https://github.com/geode-sdk/cli --locked
 
       - name: Setup Geode SDK
-        run: geode sdk install-binaries
+        run: |
+          geode config setup --non-interactive || geode config setup
+          geode sdk install-binaries
 
       - name: Configure
         run: cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
