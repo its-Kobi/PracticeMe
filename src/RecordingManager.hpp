@@ -24,16 +24,18 @@ public:
     int getFPS() const { return m_fps; }
 private:
     void worker();
+    void captureLoop();
     RecState m_state=RecState::Idle;
     std::string m_lastError;
     std::queue<Frame> m_queue;
     std::mutex m_mutex;
     std::thread m_thread;
+    std::thread m_captureThread;
     std::atomic<bool> m_running{false};
     std::unique_ptr<IVideoEncoder> m_encoder;
     std::unique_ptr<IFrameCapture> m_capture;
     std::string m_outPath;
-    static constexpr size_t MAX_QUEUE=120;
+    static constexpr size_t MAX_QUEUE=30;
     // capture timing
     int m_width=0, m_height=0, m_fps=60;
     std::chrono::steady_clock::time_point m_lastCapture{};

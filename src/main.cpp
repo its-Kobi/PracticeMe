@@ -48,7 +48,8 @@ class $modify(KRecorderMenuLayer, MenuLayer){
             if(!spr) spr = CCSprite::createWithSpriteFrameName("GJ_recordBtn_001.png");
             if(!spr) spr = CCSprite::create("GJ_button_01.png");
             if(spr){
-                spr->setScale(0.85f);
+                spr->setScale(0.65f);
+                spr->setRotation(-90.f);
                 auto btn = CCMenuItemSpriteExtra::create(spr, this, menu_selector(KRecorderMenuLayer::onKRecorder));
                 btn->setID("krecorder-button"_spr);
                 bottomMenu->addChild(btn);

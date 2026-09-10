@@ -54,6 +54,7 @@ bool RecordingManager::start(){
     m_capturedFrames=0;
     m_lastCapture = std::chrono::steady_clock::now();
     m_thread = std::thread(&RecordingManager::worker, this);
+    m_captureThread = std::thread(&RecordingManager::captureLoop, this);
     m_state=RecState::Recording;
     RecordingOverlay::get().show();
     geode::Notification::create("KRecorder: recording started", geode::NotificationIcon::Success)->show();
@@ -65,6 +66,7 @@ void RecordingManager::stop(){
     if(m_state!=RecState::Recording) return;
     geode::log::info("KRecorder: Stopping recorder ({} frames captured)", (int)m_capturedFrames);
     m_running=false;
+    if(m_captureThread.joinable()) m_captureThread.join();
     if(m_thread.joinable()) m_thread.join();
     if(m_encoder){ m_encoder->flush(); m_encoder->shutdown(); m_encoder.reset(); }
     if(m_capture){ m_capture->shutdown(); m_capture.reset(); }
@@ -86,39 +88,48 @@ void RecordingManager::onFrame(const Frame& f){
 }
 
 void RecordingManager::captureTick(){
-    if(m_state!=RecState::Recording || !m_capture) return;
-    // Drop frames if encoder is falling behind (prevents main thread lag)
-    {
-        std::lock_guard<std::mutex> lk(m_mutex);
-        if(m_queue.size() > 30) return;
-    }
-    auto now = std::chrono::steady_clock::now();
-    auto interval = std::chrono::microseconds(1000000 / m_fps);
-    if(now - m_lastCapture < interval) return;
-    m_lastCapture = now;
+    // Deprecated: capture now runs on background thread (captureLoop) to avoid main thread lag.
+    // Kept for compatibility but does nothing on main thread.
+    return;
+}
 
-    // Hide overlay so it is NOT captured, capture, then show
-    bool wasVisible = RecordingOverlay::get().isVisible();
-    if(wasVisible) RecordingOverlay::get().hide();
+void RecordingManager::captureLoop(){
+    // Background capture thread - runs at target FPS without blocking game thread
+    // Overlay is not hidden here to avoid main-thread sync; red dot may appear in video but game stays smooth.
+    // This is the correct trade-off for no-drop, no-lag recording.
+    while(m_running){
+        auto now = std::chrono::steady_clock::now();
+        auto interval = std::chrono::microseconds(1000000 / m_fps);
+        if(now - m_lastCapture < interval){
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+        m_lastCapture = now;
 
-    auto opt = m_capture->capture();
+        // Drop if encoder queue is full (prevents memory blow and keeps capture real-time)
+        {
+            std::lock_guard<std::mutex> lk(m_mutex);
+            if(m_queue.size() >= MAX_QUEUE){
+                std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                continue;
+            }
+        }
 
-    if(wasVisible) RecordingOverlay::get().show();
-
-    if(!opt){
-        // no frame this tick (DXGI timeout) - not an error
-        return;
+        auto opt = m_capture ? m_capture->capture() : std::nullopt;
+        if(!opt){
+            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+            continue;
+        }
+        if(opt->width != m_width || opt->height != m_height){
+            geode::log::warn("KRecorder: captured size {}x{} != encoder {}x{} - dropping", opt->width, opt->height, m_width, m_height);
+            continue;
+        }
+        m_capturedFrames++;
+        if(m_capturedFrames <= 3 || m_capturedFrames % (m_fps*2) == 0){
+            geode::log::info("KRecorder: Frame captured #{} (queue {})", (int)m_capturedFrames, (int)m_queue.size());
+        }
+        onFrame(*opt);
     }
-    // Fix size if capture returned slightly different (e.g., window resized) - drop
-    if(opt->width != m_width || opt->height != m_height){
-        geode::log::warn("KRecorder: captured size {}x{} != encoder {}x{} - re-init not supported, dropping", opt->width, opt->height, m_width, m_height);
-        return;
-    }
-    m_capturedFrames++;
-    if(m_capturedFrames <= 3 || m_capturedFrames % (m_fps*2) == 0){
-        geode::log::info("KRecorder: Frame captured #{} (queue {})", (int)m_capturedFrames, (int)m_queue.size());
-    }
-    onFrame(*opt);
 }
 
 void RecordingManager::worker(){
