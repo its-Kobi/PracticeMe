@@ -6,7 +6,7 @@
 #include <Geode/Geode.hpp>
 
 // Factory from DesktopDuplication.cpp
-extern IFrameCapture* createDesktopDuplicationCapture();
+extern "C" IFrameCapture* createDesktopDuplicationCapture();
 
 RecordingManager& RecordingManager::get(){ static RecordingManager i; return i; }
 
