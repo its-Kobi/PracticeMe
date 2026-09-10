@@ -1,24 +1,15 @@
 #include "IFrameCapture.hpp"
 #ifdef _WIN32
-#include <d3d11.h>
-#include <dxgi1_2.h>
 #include <windows.h>
-#include <wrl/client.h>
 #include <Geode/Geode.hpp>
 #include <chrono>
-#include <algorithm>
-
-#pragma comment(lib,"d3d11.lib")
-#pragma comment(lib,"dxgi.lib")
 #pragma comment(lib,"gdi32.lib")
 #endif
 
 #ifdef _WIN32
-// Find Geometry Dash window - GLFW title is "Geometry Dash"
 static HWND findGDWindow() {
     HWND hwnd = FindWindowA(nullptr, "Geometry Dash");
     if (hwnd) return hwnd;
-    // fallback: active foreground if its process is GD
     hwnd = GetForegroundWindow();
     if (hwnd) {
         char title[256] = {};
@@ -28,241 +19,78 @@ static HWND findGDWindow() {
     hwnd = FindWindowA("GLFW30", nullptr);
     return hwnd;
 }
-
-static std::wstring toWide(const std::string& s) {
-    if (s.empty()) return L"";
-    int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
-    std::wstring w(len, L'\0');
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, w.data(), len);
-    if (!w.empty() && w.back() == L'\0') w.pop_back();
-    return w;
-}
 #endif
 
+// Game-only capture: captures Geometry Dash window client area only, never desktop.
+// Fast path: window DC BitBlt + GetDIBits, no DXGI desktop duplication, no CreateTexture2D per frame.
 class DesktopDuplication : public IFrameCapture {
 public:
     bool init(int w,int h) override {
         m_reqW = w; m_reqH = h;
 #ifdef _WIN32
-        D3D_FEATURE_LEVEL lvl;
-        HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr,
-            0, nullptr, 0, D3D11_SDK_VERSION, &m_dev, &lvl, &m_ctx);
-        if (FAILED(hr)) {
-            geode::log::warn("DesktopDuplication: D3D11CreateDevice failed {}", (int)hr);
-            m_useGDI = true;
-            return true; // allow GDI fallback
-        }
-        Microsoft::WRL::ComPtr<IDXGIDevice> dxgiDev;
-        if (FAILED(m_dev.As(&dxgiDev))) { m_useGDI = true; return true; }
-        Microsoft::WRL::ComPtr<IDXGIAdapter> adapter;
-        if (FAILED(dxgiDev->GetAdapter(&adapter))) { m_useGDI = true; return true; }
-        Microsoft::WRL::ComPtr<IDXGIOutput> out;
-        if (FAILED(adapter->EnumOutputs(0, &out))) { m_useGDI = true; return true; }
-        Microsoft::WRL::ComPtr<IDXGIOutput1> out1;
-        if (FAILED(out.As(&out1))) { m_useGDI = true; return true; }
-        hr = out1->DuplicateOutput(m_dev.Get(), &m_dup);
-        if (FAILED(hr)) {
-            geode::log::warn("DuplicateOutput failed {} - using GDI fallback", (int)hr);
-            m_dup = nullptr;
-            m_useGDI = true;
-            return true;
-        }
-        geode::log::info("Capture initialized: DXGI duplication (req {}x{})", w, h);
-        m_useGDI = false;
-        return true;
-#else
-        return true;
+        geode::log::info("Capture initialized: window-only GDI BitBlt (req {}x{})", w, h);
 #endif
+        return true;
     }
 
     std::optional<Frame> capture() override {
 #ifdef _WIN32
+        auto t0 = std::chrono::steady_clock::now();
         HWND hwnd = findGDWindow();
-        RECT wr{};
-        int winW = 0, winH = 0;
-        bool hasWindow = false;
-        if (hwnd && GetWindowRect(hwnd, &wr)) {
-            // use client rect for game content (without borders)
-            RECT cr{}; GetClientRect(hwnd, &cr);
-            POINT pt{0,0}; ClientToScreen(hwnd, &pt);
-            wr.left = pt.x; wr.top = pt.y;
-            wr.right = pt.x + cr.right;
-            wr.bottom = pt.y + cr.bottom;
-            winW = cr.right;
-            winH = cr.bottom;
-            if (winW > 0 && winH > 0) hasWindow = true;
-        }
-
-        // Try DXGI first if available
-        if (!m_useGDI && m_dup) {
-            auto frame = captureDXGI(hasWindow, wr, winW, winH);
-            if (frame) return frame;
-            // fallthrough to GDI on timeout/failure
-        }
-        // GDI fallback - BitBlt window
-        return captureGDI(hasWindow, wr, winW, winH);
-#else
-        return std::nullopt;
-#endif
-    }
-
-    void shutdown() override {
-#ifdef _WIN32
-        if (m_dup) { m_dup->Release(); m_dup = nullptr; }
-        m_ctx.Reset();
-        m_dev.Reset();
-#endif
-    }
-
-private:
-#ifdef _WIN32
-    std::optional<Frame> captureDXGI(bool hasWindow, RECT wr, int winW, int winH) {
-        Microsoft::WRL::ComPtr<IDXGIResource> res;
-        DXGI_OUTDUPL_FRAME_INFO info{};
-        HRESULT hr = m_dup->AcquireNextFrame(50, &info, &res);
-        if (hr == DXGI_ERROR_WAIT_TIMEOUT) {
+        if (!hwnd) {
+            // Game not found -> do not capture desktop
             return std::nullopt;
         }
-        if (FAILED(hr) || !res) {
-            if (hr == DXGI_ERROR_ACCESS_LOST || hr == DXGI_ERROR_INVALID_CALL) {
-                geode::log::warn("DXGI AcquireNextFrame lost {}", (int)hr);
-            }
-            if (res) m_dup->ReleaseFrame();
-            return std::nullopt;
-        }
-        Microsoft::WRL::ComPtr<ID3D11Texture2D> tex;
-        res.As(&tex);
-        D3D11_TEXTURE2D_DESC desc{}; tex->GetDesc(&desc);
+        if (IsIconic(hwnd)) return std::nullopt; // minimized
 
-        // Need staging texture to map
-        D3D11_TEXTURE2D_DESC stageDesc = desc;
-        stageDesc.Usage = D3D11_USAGE_STAGING;
-        stageDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
-        stageDesc.BindFlags = 0;
-        stageDesc.MiscFlags = 0;
-        stageDesc.MipLevels = 1;
-        stageDesc.ArraySize = 1;
+        RECT cr{}; GetClientRect(hwnd, &cr);
+        int winW = cr.right - cr.left;
+        int winH = cr.bottom - cr.top;
+        if (winW <= 0 || winH <= 0) return std::nullopt;
+        // Reject if window is too small or not visible
+        if (!IsWindowVisible(hwnd)) return std::nullopt;
 
-        Microsoft::WRL::ComPtr<ID3D11Texture2D> stage;
-        hr = m_dev->CreateTexture2D(&stageDesc, nullptr, &stage);
-        if (FAILED(hr)) { m_dup->ReleaseFrame(); return std::nullopt; }
-
-        // If we have window rect, copy only that subresource region
-        if (hasWindow) {
-            D3D11_BOX box{};
-            box.left = std::max<LONG>(0, wr.left);
-            box.top = std::max<LONG>(0, wr.top);
-            box.right = wr.right;
-            box.bottom = wr.bottom;
-            box.front = 0; box.back = 1;
-            // Clamp to desktop size
-            if (box.right > (LONG)desc.Width) box.right = desc.Width;
-            if (box.bottom > (LONG)desc.Height) box.bottom = desc.Height;
-            if (box.right <= box.left || box.bottom <= box.top) {
-                m_dup->ReleaseFrame();
-                return std::nullopt;
-            }
-            m_ctx->CopySubresourceRegion(stage.Get(), 0, 0, 0, 0, tex.Get(), 0, &box);
-            // width/height for this cropped region
-            winW = box.right - box.left;
-            winH = box.bottom - box.top;
-        } else {
-            m_ctx->CopyResource(stage.Get(), tex.Get());
-            winW = desc.Width;
-            winH = desc.Height;
-        }
-
-        D3D11_MAPPED_SUBRESOURCE mapped{};
-        hr = m_ctx->Map(stage.Get(), 0, D3D11_MAP_READ, 0, &mapped);
-        if (FAILED(hr)) { m_dup->ReleaseFrame(); return std::nullopt; }
-
-        Frame f;
-        f.width = winW;
-        f.height = winH;
-        // Requested size handling: if init requested specific size and differs, do simple nearest-neighbor scale
-        int targetW = m_reqW > 0 ? m_reqW : winW;
-        int targetH = m_reqH > 0 ? m_reqH : winH;
-        bool needScale = (targetW != winW || targetH != winH) && targetW > 0 && targetH > 0 && winW > 0 && winH > 0;
-
-        f.timestampUs = std::chrono::duration_cast<std::chrono::microseconds>(
-            std::chrono::steady_clock::now().time_since_epoch()).count();
-        f.data.resize((size_t)targetW * targetH * 4);
-
-        if (!needScale) {
-            // Direct copy, handling pitch
-            uint8_t* dst = f.data.data();
-            uint8_t* src = reinterpret_cast<uint8_t*>(mapped.pData);
-            for (int y = 0; y < winH; ++y) {
-                memcpy(dst + (size_t)y * winW * 4, src + (size_t)y * mapped.RowPitch, (size_t)winW * 4);
-            }
-        } else {
-            // Nearest neighbor scale (fast, no extra deps)
-            uint8_t* srcBase = reinterpret_cast<uint8_t*>(mapped.pData);
-            // First copy to temp buffer
-            std::vector<uint8_t> srcBuf((size_t)winW * winH * 4);
-            for (int y = 0; y < winH; ++y) {
-                memcpy(srcBuf.data() + (size_t)y * winW * 4, srcBase + (size_t)y * mapped.RowPitch, (size_t)winW * 4);
-            }
-            for (int y = 0; y < targetH; ++y) {
-                int sy = y * winH / targetH;
-                for (int x = 0; x < targetW; ++x) {
-                    int sx = x * winW / targetW;
-                    memcpy(f.data.data() + ((size_t)y * targetW + x) * 4,
-                           srcBuf.data() + ((size_t)sy * winW + sx) * 4, 4);
-                }
-            }
-            f.width = targetW;
-            f.height = targetH;
-        }
-
-        m_ctx->Unmap(stage.Get(), 0);
-        m_dup->ReleaseFrame();
-        return f;
-    }
-
-    std::optional<Frame> captureGDI(bool hasWindow, RECT wr, int winW, int winH) {
-        HWND hwnd = findGDWindow();
-        if (!hwnd || !hasWindow) {
-            // Fallback to desktop
-            int sw = GetSystemMetrics(SM_CXSCREEN);
-            int sh = GetSystemMetrics(SM_CYSCREEN);
-            wr.left = 0; wr.top = 0; wr.right = sw; wr.bottom = sh;
-            winW = sw; winH = sh;
-            hwnd = GetDesktopWindow();
-        }
-        HDC hScreen = GetDC(hwnd ? hwnd : nullptr);
-        if (!hScreen) return std::nullopt;
-        HDC hMem = CreateCompatibleDC(hScreen);
-        if (!hMem) { ReleaseDC(hwnd, hScreen); return std::nullopt; }
+        // Game-only: BitBlt from window client DC, not desktop
+        HDC hWindowDC = GetDC(hwnd);
+        if (!hWindowDC) return std::nullopt;
+        HDC hMem = CreateCompatibleDC(hWindowDC);
+        if (!hMem) { ReleaseDC(hwnd, hWindowDC); return std::nullopt; }
 
         int targetW = m_reqW > 0 ? m_reqW : winW;
         int targetH = m_reqH > 0 ? m_reqH : winH;
+        // Clamp to even for H264
+        if (targetW % 2) targetW--; if (targetH % 2) targetH--;
 
-        HBITMAP hbmp = CreateCompatibleBitmap(hScreen, winW, winH);
-        if (!hbmp) { DeleteDC(hMem); ReleaseDC(hwnd, hScreen); return std::nullopt; }
+        HBITMAP hbmp = CreateCompatibleBitmap(hWindowDC, winW, winH);
+        if (!hbmp) { DeleteDC(hMem); ReleaseDC(hwnd, hWindowDC); return std::nullopt; }
         HGDIOBJ old = SelectObject(hMem, hbmp);
 
-        // Fast BitBlt from window DC (PrintWindow is slow and causes lag)
-        if (hasWindow) {
-            BitBlt(hMem, 0, 0, winW, winH, hScreen, 0, 0, SRCCOPY);
-        } else {
-            BitBlt(hMem, 0, 0, winW, winH, hScreen, wr.left, wr.top, SRCCOPY);
+        auto t1 = std::chrono::steady_clock::now();
+        BOOL blt = BitBlt(hMem, 0, 0, winW, winH, hWindowDC, 0, 0, SRCCOPY);
+        auto t2 = std::chrono::steady_clock::now();
+        if (!blt) {
+            SelectObject(hMem, old);
+            DeleteObject(hbmp);
+            DeleteDC(hMem);
+            ReleaseDC(hwnd, hWindowDC);
+            return std::nullopt;
         }
 
         BITMAPINFO bmi{}; bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
         bmi.bmiHeader.biWidth = winW;
-        bmi.bmiHeader.biHeight = -winH; // top-down
+        bmi.bmiHeader.biHeight = -winH;
         bmi.bmiHeader.biPlanes = 1;
         bmi.bmiHeader.biBitCount = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
 
         std::vector<uint8_t> raw((size_t)winW * winH * 4);
         int lines = GetDIBits(hMem, hbmp, 0, winH, raw.data(), &bmi, DIB_RGB_COLORS);
+        auto t3 = std::chrono::steady_clock::now();
 
         SelectObject(hMem, old);
         DeleteObject(hbmp);
         DeleteDC(hMem);
-        ReleaseDC(hwnd, hScreen);
+        ReleaseDC(hwnd, hWindowDC);
 
         if (lines == 0) return std::nullopt;
 
@@ -274,7 +102,7 @@ private:
             f.width = winW; f.height = winH;
             f.data = std::move(raw);
         } else {
-            // scale raw to target
+            // Only scale if requested size differs - this is extra cost, avoid if possible by setting 0,0 for native
             f.width = targetW; f.height = targetH;
             f.data.resize((size_t)targetW * targetH * 4);
             for (int y = 0; y < targetH; ++y) {
@@ -286,15 +114,37 @@ private:
                 }
             }
         }
+
+        auto t4 = std::chrono::steady_clock::now();
+        auto capMs = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t0).count() / 1000.0;
+        auto bltMs = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count() / 1000.0;
+        auto dibMs = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count() / 1000.0;
+        // Diagnostics: log slow captures and throttled periodic stats
+        static int s_count = 0;
+        static auto s_lastLog = std::chrono::steady_clock::now();
+        s_count++;
+        bool slow = capMs > 15.0;
+        if (slow || s_count % 60 == 0) {
+            auto now = std::chrono::steady_clock::now();
+            double elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - s_lastLog).count() / 1000.0;
+            double fps = s_count / (elapsed > 0 ? elapsed : 1);
+            geode::log::info("KRecorder: capture {}x{} time={:.1f}ms (blt={:.1f} dib={:.1f}) fps~{:.1f} queue={}", f.width, f.height, capMs, bltMs, dibMs, fps, 0);
+            if (s_count % 300 == 0) s_lastLog = now;
+        }
+        if (slow) {
+            geode::log::warn("KRecorder: slow capture {:.1f}ms - may cause 10-13 fps", capMs);
+        }
+
         return f;
+#else
+        return std::nullopt;
+#endif
     }
 
+    void shutdown() override {}
+
+private:
     int m_reqW = 0, m_reqH = 0;
-    bool m_useGDI = false;
-    Microsoft::WRL::ComPtr<ID3D11Device> m_dev;
-    Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_ctx;
-    IDXGIOutputDuplication* m_dup = nullptr;
-#endif
 };
 
 // Factory used by RecordingManager
