@@ -3,11 +3,20 @@
 using namespace geode::prelude;
 RecordingOverlay& RecordingOverlay::get(){ static RecordingOverlay i; return i; }
 void RecordingOverlay::show(){
-    if(m_visible) return;
+    if(m_visible) {
+        if(m_dot) m_dot->setVisible(true);
+        return;
+    }
     if(!KRecorderSettings::isOverlayEnabled()) return;
     auto dir = cocos2d::CCDirector::sharedDirector();
     auto scene = dir->getRunningScene();
     if(!scene) return;
+    // Reuse existing dot if already created
+    if(m_dot){
+        m_dot->setVisible(true);
+        m_visible=true;
+        return;
+    }
     auto win = dir->getWinSize();
     float sz=10.f; float m=12.f;
     std::string pos = KRecorderSettings::getOverlayPosition();
@@ -17,7 +26,6 @@ void RecordingOverlay::show(){
     else if(pos=="bottom-right") p = cocos2d::CCPoint(win.width - m - sz/2, m+sz/2);
     else p = cocos2d::CCPoint(win.width - m - sz/2, win.height - m - sz/2);
     m_dot = cocos2d::CCLayerColor::create(cocos2d::ccc4(255,0,0,255), sz, sz);
-    // circle via shader not needed, small rect with rounded via sprite would be nicer
     m_dot->setPosition(p - ccp(sz/2,sz/2));
     m_dot->setZOrder(9999);
     m_dot->setID("krecorder-indicator");
@@ -26,6 +34,6 @@ void RecordingOverlay::show(){
 }
 void RecordingOverlay::hide(){
     if(!m_visible) return;
-    if(m_dot){ m_dot->removeFromParent(); m_dot=nullptr; }
+    if(m_dot) m_dot->setVisible(false);
     m_visible=false;
 }

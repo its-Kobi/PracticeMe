@@ -43,9 +43,10 @@ class $modify(KRecorderMenuLayer, MenuLayer){
         auto bottomMenu = this->getChildByID("bottom-menu");
         auto winSize = cocos2d::CCDirector::sharedDirector()->getWinSize();
         if(bottomMenu){
-            auto spr = CCSprite::createWithSpriteFrameName("GJ_recordBtn_001.png");
+            auto spr = CCSprite::create("menu_icon.png"_spr);
+            if(!spr) spr = CCSprite::create("KRecorder/menu_icon.png"_spr);
+            if(!spr) spr = CCSprite::createWithSpriteFrameName("GJ_recordBtn_001.png");
             if(!spr) spr = CCSprite::create("GJ_button_01.png");
-            if(!spr) spr = CCSprite::create("KRecorder/logo.png"_spr);
             if(spr){
                 spr->setScale(0.85f);
                 auto btn = CCMenuItemSpriteExtra::create(spr, this, menu_selector(KRecorderMenuLayer::onKRecorder));
@@ -66,17 +67,6 @@ class $modify(KRecorderMenuLayer, MenuLayer){
         return true;
     }
     void onKRecorder(CCObject*){
-        auto& rm = RecordingManager::get();
-        if(rm.isRecording()){
-            rm.stop();
-        } else {
-            if(HotkeyManager::get().isKeyDown(VK_SHIFT)){
-                geode::openSettingsPopup(Mod::get());
-            } else {
-                if(!rm.start()){
-                    FLAlertLayer::create("KRecorder", rm.getLastError().c_str(), "OK")->show();
-                }
-            }
-        }
+        geode::openSettingsPopup(Mod::get());
     }
 };

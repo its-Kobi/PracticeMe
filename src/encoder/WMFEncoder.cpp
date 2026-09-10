@@ -80,6 +80,8 @@ bool WMFEncoder::configure(int w,int h,int fps,int bitrate,const std::string& ou
     if(FAILED(hr)){ geode::log::error("BeginWriting failed {}", (int)hr); return false; }
     m_inited=true;
     m_frameIdx=0;
+    m_startTimeUs=-1;
+    m_lastTimeUs=0;
     geode::log::info("KRecorder: Encoder BeginWriting OK");
     return true;
 #else
@@ -111,9 +113,19 @@ bool WMFEncoder::encode(const Frame& f){
     Microsoft::WRL::ComPtr<IMFSample> sample;
     MFCreateSample(&sample);
     sample->AddBuffer(buf.Get());
-    // Use steady timestamp for A/V sync; f.timestampUs not used for now, use frame idx for constant fps
-    sample->SetSampleTime(m_frameIdx * 10000000LL / m_fps);
-    sample->SetSampleDuration(10000000LL / m_fps);
+    // Use real capture timestamps for correct playback speed (fixes speeded video at 30/60 fps)
+    if(m_startTimeUs < 0) m_startTimeUs = (int64_t)f.timestampUs;
+    int64_t ptsUs = (int64_t)f.timestampUs - m_startTimeUs;
+    LONGLONG pts100ns = ptsUs * 10; // us -> 100ns
+    LONGLONG duration100ns = 10000000LL / m_fps;
+    if(m_lastTimeUs > 0 && f.timestampUs > (uint64_t)m_lastTimeUs){
+        duration100ns = ((int64_t)f.timestampUs - m_lastTimeUs) * 10;
+        if(duration100ns <= 0) duration100ns = 10000000LL / m_fps;
+        if(duration100ns > 10000000LL * 2) duration100ns = 10000000LL / m_fps; // clamp huge gaps
+    }
+    m_lastTimeUs = (int64_t)f.timestampUs;
+    sample->SetSampleTime(pts100ns);
+    sample->SetSampleDuration(duration100ns);
     hr = m_writer->WriteSample(m_stream, sample.Get());
     if(FAILED(hr)){
         // Throttle error log

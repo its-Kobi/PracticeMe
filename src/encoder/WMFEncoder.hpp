@@ -17,6 +17,8 @@ private:
     bool m_hardware=false;
     bool m_inited=false;
     int m_width=0, m_height=0;
+    int64_t m_startTimeUs=-1;
+    int64_t m_lastTimeUs=0;
 #ifdef _WIN32
     Microsoft::WRL::ComPtr<IMFSinkWriter> m_writer;
     DWORD m_stream=0;

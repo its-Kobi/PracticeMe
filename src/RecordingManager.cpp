@@ -87,6 +87,11 @@ void RecordingManager::onFrame(const Frame& f){
 
 void RecordingManager::captureTick(){
     if(m_state!=RecState::Recording || !m_capture) return;
+    // Drop frames if encoder is falling behind (prevents main thread lag)
+    {
+        std::lock_guard<std::mutex> lk(m_mutex);
+        if(m_queue.size() > 30) return;
+    }
     auto now = std::chrono::steady_clock::now();
     auto interval = std::chrono::microseconds(1000000 / m_fps);
     if(now - m_lastCapture < interval) return;

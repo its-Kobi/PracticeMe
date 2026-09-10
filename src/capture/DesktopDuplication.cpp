@@ -242,14 +242,9 @@ private:
         if (!hbmp) { DeleteDC(hMem); ReleaseDC(hwnd, hScreen); return std::nullopt; }
         HGDIOBJ old = SelectObject(hMem, hbmp);
 
-        // For window capture, BitBlt from window DC (client area)
-        // hwnd DC from GetDC includes client; for desktop fallback use screen DC
+        // Fast BitBlt from window DC (PrintWindow is slow and causes lag)
         if (hasWindow) {
-            // Use PrintWindow for more reliable layered window capture, fallback to BitBlt
-            BOOL ok = PrintWindow(hwnd, hMem, PW_CLIENTONLY);
-            if (!ok) {
-                BitBlt(hMem, 0, 0, winW, winH, hScreen, 0, 0, SRCCOPY);
-            }
+            BitBlt(hMem, 0, 0, winW, winH, hScreen, 0, 0, SRCCOPY);
         } else {
             BitBlt(hMem, 0, 0, winW, winH, hScreen, wr.left, wr.top, SRCCOPY);
         }
