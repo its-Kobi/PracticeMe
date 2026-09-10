@@ -7,17 +7,32 @@
 #endif
 
 #ifdef _WIN32
+static BOOL CALLBACK enumFindGD(HWND hwnd, LPARAM lParam) {
+    char title[256] = {}; GetWindowTextA(hwnd, title, sizeof(title));
+    char cls[64] = {}; GetClassNameA(hwnd, cls, sizeof(cls));
+    if (strstr(title, "Geometry Dash") || strstr(cls, "GLFW")) {
+        if (IsWindowVisible(hwnd) && !IsIconic(hwnd)) {
+            RECT rc{}; GetClientRect(hwnd, &rc);
+            if (rc.right > 100 && rc.bottom > 100) {
+                *(HWND*)lParam = hwnd;
+                return FALSE;
+            }
+        }
+    }
+    return TRUE;
+}
 static HWND findGDWindow() {
     HWND hwnd = FindWindowA(nullptr, "Geometry Dash");
-    if (hwnd) return hwnd;
+    if (hwnd && IsWindowVisible(hwnd)) return hwnd;
+    HWND found = nullptr;
+    EnumWindows(enumFindGD, (LPARAM)&found);
+    if (found) return found;
     hwnd = GetForegroundWindow();
     if (hwnd) {
-        char title[256] = {};
-        GetWindowTextA(hwnd, title, sizeof(title));
+        char title[256] = {}; GetWindowTextA(hwnd, title, sizeof(title));
         if (strstr(title, "Geometry Dash") || strstr(title, "GeometryDash")) return hwnd;
     }
-    hwnd = FindWindowA("GLFW30", nullptr);
-    return hwnd;
+    return FindWindowA("GLFW30", nullptr);
 }
 #endif
 
@@ -28,7 +43,10 @@ public:
     bool init(int w,int h) override {
         m_reqW = w; m_reqH = h;
 #ifdef _WIN32
-        geode::log::info("Capture initialized: window-only GDI BitBlt (req {}x{})", w, h);
+        // If user requested 0,0 use native window size (no scaling, fastest)
+        if (w==0 || h==0) geode::log::info("Capture initialized: window-only GDI BitBlt native size");
+        else geode::log::info("Capture initialized: window-only GDI BitBlt (req {}x{})", w, h);
+        m_hMem = nullptr; m_hBmp = nullptr; m_cachedW=0; m_cachedH=0;
 #endif
         return true;
     }
@@ -50,28 +68,29 @@ public:
         // Reject if window is too small or not visible
         if (!IsWindowVisible(hwnd)) return std::nullopt;
 
-        // Game-only: BitBlt from window client DC, not desktop
+        // Game-only: BitBlt from window client DC, not desktop - reuse HDC/bitmap for speed (no per-frame alloc)
         HDC hWindowDC = GetDC(hwnd);
         if (!hWindowDC) return std::nullopt;
-        HDC hMem = CreateCompatibleDC(hWindowDC);
-        if (!hMem) { ReleaseDC(hwnd, hWindowDC); return std::nullopt; }
 
         int targetW = m_reqW > 0 ? m_reqW : winW;
         int targetH = m_reqH > 0 ? m_reqH : winH;
-        // Clamp to even for H264
         if (targetW % 2) targetW--; if (targetH % 2) targetH--;
 
-        HBITMAP hbmp = CreateCompatibleBitmap(hWindowDC, winW, winH);
-        if (!hbmp) { DeleteDC(hMem); ReleaseDC(hwnd, hWindowDC); return std::nullopt; }
-        HGDIOBJ old = SelectObject(hMem, hbmp);
+        // Reuse compatible DC and bitmap if size unchanged (avoids 70ms CreateTexture2D-like cost)
+        if (!m_hMem) m_hMem = CreateCompatibleDC(hWindowDC);
+        if (!m_hMem) { ReleaseDC(hwnd, hWindowDC); return std::nullopt; }
+        if (winW != m_cachedW || winH != m_cachedH) {
+            if (m_hBmp) { DeleteObject(m_hBmp); m_hBmp = nullptr; }
+            m_hBmp = CreateCompatibleBitmap(hWindowDC, winW, winH);
+            m_cachedW = winW; m_cachedH = winH;
+            if (m_hBmp) SelectObject(m_hMem, m_hBmp);
+        }
+        if (!m_hBmp) { ReleaseDC(hwnd, hWindowDC); return std::nullopt; }
 
         auto t1 = std::chrono::steady_clock::now();
-        BOOL blt = BitBlt(hMem, 0, 0, winW, winH, hWindowDC, 0, 0, SRCCOPY);
+        BOOL blt = BitBlt(m_hMem, 0, 0, winW, winH, hWindowDC, 0, 0, SRCCOPY);
         auto t2 = std::chrono::steady_clock::now();
         if (!blt) {
-            SelectObject(hMem, old);
-            DeleteObject(hbmp);
-            DeleteDC(hMem);
             ReleaseDC(hwnd, hWindowDC);
             return std::nullopt;
         }
@@ -83,13 +102,12 @@ public:
         bmi.bmiHeader.biBitCount = 32;
         bmi.bmiHeader.biCompression = BI_RGB;
 
-        std::vector<uint8_t> raw((size_t)winW * winH * 4);
-        int lines = GetDIBits(hMem, hbmp, 0, winH, raw.data(), &bmi, DIB_RGB_COLORS);
+        // Reuse vector to avoid per-frame 8MB alloc
+        thread_local std::vector<uint8_t> raw;
+        raw.resize((size_t)winW * winH * 4);
+        int lines = GetDIBits(m_hMem, m_hBmp, 0, winH, raw.data(), &bmi, DIB_RGB_COLORS);
         auto t3 = std::chrono::steady_clock::now();
 
-        SelectObject(hMem, old);
-        DeleteObject(hbmp);
-        DeleteDC(hMem);
         ReleaseDC(hwnd, hWindowDC);
 
         if (lines == 0) return std::nullopt;
@@ -141,10 +159,21 @@ public:
 #endif
     }
 
-    void shutdown() override {}
+    void shutdown() override {
+#ifdef _WIN32
+        if (m_hBmp) { DeleteObject(m_hBmp); m_hBmp=nullptr; }
+        if (m_hMem) { DeleteDC(m_hMem); m_hMem=nullptr; }
+        m_cachedW=0; m_cachedH=0;
+#endif
+    }
 
 private:
     int m_reqW = 0, m_reqH = 0;
+#ifdef _WIN32
+    HDC m_hMem = nullptr;
+    HBITMAP m_hBmp = nullptr;
+    int m_cachedW = 0, m_cachedH = 0;
+#endif
 };
 
 // Factory used by RecordingManager
