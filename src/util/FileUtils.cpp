@@ -1,4 +1,5 @@
 #include "FileUtils.hpp"
+#include "Settings.hpp"
 #include <Geode/Geode.hpp>
 #include <chrono>
 #include <iomanip>
@@ -33,8 +34,11 @@ std::string FileUtils::generateFilename(){
     auto now = std::chrono::system_clock::now();
     std::time_t t = std::chrono::system_clock::to_time_t(now);
     std::tm tm{}; localtime_s(&tm,&t);
+    std::string fmt = "mp4";
+    try { fmt = KRecorderSettings::getFormat(); } catch(...) {}
+    if(fmt != "mkv" && fmt != "mp4") fmt = "mp4";
     std::ostringstream oss;
-    oss << "KRecorder_" << std::put_time(&tm,"%Y-%m-%d_%H-%M-%S") << ".mp4";
+    oss << "KRecorder_" << std::put_time(&tm,"%Y-%m-%d_%H-%M-%S") << "." << fmt;
     return oss.str();
 }
 bool FileUtils::ensureDir(const std::string& p){

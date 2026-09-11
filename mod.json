@@ -82,6 +82,16 @@
             "min": 1000,
             "max": 50000
         },
+        "video-format": {
+            "name": "Container",
+            "description": "MP4 or MKV (MKV is safer if game crashes)",
+            "type": "string",
+            "default": "mp4",
+            "one-of": [
+                "mp4",
+                "mkv"
+            ]
+        },
         "video-codec": {
             "name": "Codec",
             "description": "Preferred codec",

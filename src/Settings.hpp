@@ -11,6 +11,9 @@ struct KRecorderSettings {
     static int getHeight();
     static int getBitrate();
     static std::string getCodec();
+    static std::string getFormat();
     static std::string getOutputDir();
     static bool isAudioEnabled();
+    static std::string getAudioMode();
+    static std::string getMicDevice();
 };
