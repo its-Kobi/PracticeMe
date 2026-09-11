@@ -21,6 +21,7 @@ add_library(${PROJECT_NAME} SHARED
     src/encoder/WMFEncoder.cpp
     src/encoder/EncoderFactory.cpp
     src/util/FileUtils.cpp
+    src/audio/AudioCapture.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE include src)
 setup_geode_mod(${PROJECT_NAME})
