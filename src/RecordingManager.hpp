@@ -1,6 +1,7 @@
 #pragma once
 #include "capture/IFrameCapture.hpp"
 #include "encoder/IVideoEncoder.hpp"
+#include "audio/AudioCapture.hpp"
 #include <queue>
 #include <mutex>
 #include <thread>
@@ -34,10 +35,13 @@ private:
     std::atomic<bool> m_running{false};
     std::unique_ptr<IVideoEncoder> m_encoder;
     std::unique_ptr<IFrameCapture> m_capture;
+    AudioCapture m_audioCapture;
     std::string m_outPath;
     static constexpr size_t MAX_QUEUE=30;
     // capture timing
     int m_width=0, m_height=0, m_fps=60;
     std::chrono::steady_clock::time_point m_lastCapture{};
     uint64_t m_capturedFrames=0;
+    uint64_t m_droppedFrames=0;
+    std::string m_audioMode;
 };

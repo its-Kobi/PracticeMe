@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <mmdeviceapi.h>
 #include <audioclient.h>
+#include <functiondiscoverykeys_devpkey.h>
 #include <avrt.h>
 #pragma comment(lib,"avrt.lib")
 #pragma comment(lib,"ole32.lib")

@@ -28,8 +28,11 @@ bool RecordingManager::start(){
     int fps = KRecorderSettings::getFPS();
     int br = KRecorderSettings::getBitrate();
     m_width=w; m_height=h; m_fps=fps;
+    m_audioMode = KRecorderSettings::getAudioMode();
+    geode::log::info("KRecorder: Audio mode '{}' mic='{}'", m_audioMode, KRecorderSettings::getMicDevice());
+    AudioCapture::logAvailableMics();
 
-    // Init capture backend
+    // Init capture backend (game-only)
     m_capture.reset(createDesktopDuplicationCapture());
     if(!m_capture->init(w,h)){
         m_lastError="Capture init failed";
@@ -38,7 +41,7 @@ bool RecordingManager::start(){
         m_capture.reset();
         return false;
     }
-    geode::log::info("KRecorder: Capture initialized {}x{} @{}fps", w, h, fps);
+    geode::log::info("KRecorder: Capture initialized {}x{} @{}fps (game-only)", w, h, fps);
 
     m_encoder = std::make_unique<WMFEncoder>();
     if(!m_encoder->configure(w,h,fps,br,file)){
@@ -52,20 +55,38 @@ bool RecordingManager::start(){
     m_outPath=file;
     m_running=true;
     m_capturedFrames=0;
+    m_droppedFrames=0;
     m_lastCapture = std::chrono::steady_clock::now();
+    // Start audio capture on separate threads (never blocks game thread)
+    if(m_audioMode=="game" || m_audioMode=="game+mic"){
+        m_audioCapture.startGameAudio([](const int16_t* data, size_t frames){
+            // TODO: feed to WMF audio encoder (separate track, no game lag)
+            (void)data; (void)frames;
+        });
+        geode::log::info("KRecorder: game audio capture started");
+    }
+    if(m_audioMode=="mic" || m_audioMode=="game+mic"){
+        std::string dev = KRecorderSettings::getMicDevice();
+        m_audioCapture.startMic(dev, [](const int16_t* data, size_t frames){
+            (void)data; (void)frames;
+        });
+        geode::log::info("KRecorder: mic capture started device='{}'", dev);
+    }
     m_thread = std::thread(&RecordingManager::worker, this);
     m_captureThread = std::thread(&RecordingManager::captureLoop, this);
     m_state=RecState::Recording;
     RecordingOverlay::get().show();
     geode::Notification::create("KRecorder: recording started", geode::NotificationIcon::Success)->show();
-    geode::log::info("KRecorder: Recording started -> {}", file);
+    geode::log::info("KRecorder: Recording started -> {} (fmt={}, audio={})", file, KRecorderSettings::getFormat(), m_audioMode);
     return true;
 }
 
 void RecordingManager::stop(){
     if(m_state!=RecState::Recording) return;
-    geode::log::info("KRecorder: Stopping recorder ({} frames captured)", (int)m_capturedFrames);
+    uint64_t total = m_capturedFrames + m_droppedFrames;
+    geode::log::info("KRecorder: Stopping recorder (captured={}, dropped={}, queued={}, fps~{:.1f})", (int)m_capturedFrames, (int)m_droppedFrames, (int)m_queue.size(), total>0 ? (double)m_capturedFrames/total*60.0 : 0);
     m_running=false;
+    m_audioCapture.stop();
     if(m_captureThread.joinable()) m_captureThread.join();
     if(m_thread.joinable()) m_thread.join();
     if(m_encoder){ m_encoder->flush(); m_encoder->shutdown(); m_encoder.reset(); }
@@ -73,7 +94,7 @@ void RecordingManager::stop(){
     RecordingOverlay::get().hide();
     m_state=RecState::Idle;
     geode::Notification::create(("KRecorder: saved to " + m_outPath).c_str())->show();
-    geode::log::info("KRecorder: File finalized -> {}", m_outPath);
+    geode::log::info("KRecorder: File finalized -> {} (frames={}, dropped={})", m_outPath, (int)m_capturedFrames, (int)m_droppedFrames);
 }
 
 void RecordingManager::onFrame(const Frame& f){
@@ -106,10 +127,11 @@ void RecordingManager::captureLoop(){
         }
         m_lastCapture = now;
 
-        // Drop if encoder queue is full (prevents memory blow and keeps capture real-time)
+        // Drop if encoder queue is full (prevents memory blow and keeps capture real-time) - prefer drop over blocking game
         {
             std::lock_guard<std::mutex> lk(m_mutex);
             if(m_queue.size() >= MAX_QUEUE){
+                m_droppedFrames++;
                 std::this_thread::sleep_for(std::chrono::milliseconds(2));
                 continue;
             }
