@@ -101,9 +101,27 @@
         },
         "audio-enabled": {
             "name": "Record Game Audio (Experimental)",
-            "description": "Capture game audio",
+            "description": "Capture game audio (legacy, use Audio Mode)",
             "type": "bool",
             "default": false
+        },
+        "audio-mode": {
+            "name": "Audio Mode",
+            "description": "Game Audio / Microphone / Both / Disabled - runs on separate thread, no game lag",
+            "type": "string",
+            "default": "game",
+            "one-of": [
+                "disabled",
+                "game",
+                "mic",
+                "game+mic"
+            ]
+        },
+        "audio-mic-device": {
+            "name": "Microphone Device",
+            "description": "Mic device name (empty = default)",
+            "type": "string",
+            "default": ""
         }
     },
     "resources": {
