@@ -1,0 +1,23 @@
+{
+    "geode": "5.10.1",
+    "gd": {
+        "win": "2.2081",
+        "mac": "2.2081",
+        "android": "2.2081",
+        "ios": "2.2081"
+    },
+    "id": "kobi.practiceme",
+    "name": "PracticeMe",
+    "version": "v1.0.0",
+    "description": "Your personal practice assistant — discovers which parts of a level you struggle with and recommends what to practice. Lightweight, Practice Mode focused, adaptive.",
+    "repository": "https://github.com/its-Kobi/PracticeMe",
+    "tags": ["utility", "gameplay", "enhancement"],
+    "dependencies": {
+        "geode.node-ids": ">=v1.23.3"
+    },
+    "resources": {
+        "files": ["resources/*"]
+    },
+    "developers": ["KOBI"],
+    "settings": {}
+}

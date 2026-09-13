@@ -1,0 +1,48 @@
+name: Build PracticeMe
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Geode CLI
+        run: cargo install --git https://github.com/geode-sdk/cli --locked
+
+      - name: Setup Geode SDK
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path "C:\temp\gd" | Out-Null
+          geode profile add --name ci "C:\temp\gd" windows
+          geode sdk install "C:\Users\runneradmin\Documents\Geode" --force
+          $env:GEODE_SDK = "C:\Users\runneradmin\Documents\Geode"
+          echo "GEODE_SDK=C:\Users\runneradmin\Documents\Geode" >> $env:GITHUB_ENV
+          geode sdk install-binaries
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build with Geode CLI
+        env:
+          GEODE_SDK: C:\Users\runneradmin\Documents\Geode
+        run: |
+          New-Item -ItemType Directory -Force -Path "C:\temp\gd\geode\mods" | Out-Null
+          Remove-Item -Recurse -Force build -ErrorAction SilentlyContinue
+          geode build --platform windows
+
+      - name: Find geode file
+        shell: powershell
+        run: Get-ChildItem -Recurse -Filter "*.geode" | Select-Object FullName, Length | Format-List
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PracticeMe-geode
+          path: "**/*.geode"
+          if-no-files-found: error
