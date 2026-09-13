@@ -32,7 +32,7 @@ void Storage::load() {
     if (content.empty()) return;
     auto parsed = matjson::parse(content);
     if (!parsed) {
-        log::warn("[PracticeMe] Failed to parse save file: {}", parsed.error());
+        log::warn("[PracticeMe] Failed to parse save file: {}", parsed.unwrapErr());
         return;
     }
     auto val = parsed.unwrap();
@@ -46,8 +46,7 @@ void Storage::load() {
     else levelsVal = val;
 
     if (!levelsVal.isObject()) return;
-    auto obj = levelsVal.asObject().unwrap();
-    for (auto& [k, v] : obj) {
+    for (auto& [k, v] : levelsVal) {
         try {
             auto stats = LevelStats::fromJson(v);
             stats.key = k;
