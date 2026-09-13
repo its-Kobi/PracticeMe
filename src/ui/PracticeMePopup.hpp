@@ -4,11 +4,11 @@
 class GJGameLevel;
 
 namespace practiceme {
-class PracticeMePopup : public geode::Popup<GJGameLevel*> {
+class PracticeMePopup : public geode::Popup {
 protected:
-    bool setup(GJGameLevel* level) override;
     GJGameLevel* m_level = nullptr;
 public:
     static PracticeMePopup* create(GJGameLevel* level);
+    bool init(GJGameLevel* level);
 };
 }

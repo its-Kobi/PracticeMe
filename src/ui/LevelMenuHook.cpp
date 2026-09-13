@@ -43,11 +43,11 @@ class $modify(PracticeMeLevelInfoLayer, LevelInfoLayer) {
             menu->updateLayout();
         } else {
             // fallback: create own menu at bottom left
-            auto menu = CCMenu::create();
-            menu->setID("practiceme-menu"_spr);
-            menu->setPosition({60, 60});
-            menu->addChild(btn);
-            this->addChild(menu);
+            auto fallbackMenu = CCMenu::create();
+            fallbackMenu->setID("practiceme-menu"_spr);
+            fallbackMenu->setPosition({60, 60});
+            fallbackMenu->addChild(btn);
+            this->addChild(fallbackMenu);
         }
 
         log::info("[PracticeMe] Button added to LevelInfoLayer for {}", level ? level->m_levelName : "unknown");

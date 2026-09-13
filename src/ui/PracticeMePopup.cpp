@@ -12,7 +12,7 @@ namespace practiceme {
 
 PracticeMePopup* PracticeMePopup::create(GJGameLevel* level) {
     auto ret = new PracticeMePopup();
-    if (ret->initAnchored(420.f, 320.f, level)) {
+    if (ret->init(level)) {
         ret->autorelease();
         return ret;
     }
@@ -20,7 +20,10 @@ PracticeMePopup* PracticeMePopup::create(GJGameLevel* level) {
     return nullptr;
 }
 
-bool PracticeMePopup::setup(GJGameLevel* level) {
+bool PracticeMePopup::init(GJGameLevel* level) {
+    if (!Popup::init(420.f, 320.f))
+        return false;
+
     m_level = level;
     this->setTitle("PracticeMe");
     // title already set
