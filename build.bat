@@ -1,6 +1,6 @@
 @echo off
 setlocal
-echo === KRecorder build.bat ===
+echo === PracticeMe build.bat ===
 where cmake >nul 2>&1
 if errorlevel 1 ( echo [ERROR] cmake not found & exit /b 1)
 where git >nul 2>&1
@@ -17,6 +17,6 @@ if errorlevel 1 ( echo [ERROR] build failed & exit /b 1)
 set GEODE_FILE=
 for /R build %%f in (*.geode) do set GEODE_FILE=%%f
 if not defined GEODE_FILE ( echo [ERROR] .geode not found & exit /b 1)
-if not exist "%USERPROFILE%\Desktop\KRecorder-Release" mkdir "%USERPROFILE%\Desktop\KRecorder-Release"
-copy /Y "%GEODE_FILE%" "%USERPROFILE%\Desktop\KRecorder-Release\KRecorder.geode"
-echo [OK] Copied to Desktop\KRecorder-Release\KRecorder.geode
+if not exist "%USERPROFILE%\Desktop\PracticeMe-Release" mkdir "%USERPROFILE%\Desktop\PracticeMe-Release"
+copy /Y "%GEODE_FILE%" "%USERPROFILE%\Desktop\PracticeMe-Release\PracticeMe.geode"
+echo [OK] Copied to Desktop\PracticeMe-Release\PracticeMe.geode

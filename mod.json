@@ -6,140 +6,18 @@
         "android": "2.2081",
         "ios": "2.2081"
     },
-    "id": "kobi.krecorder",
-    "name": "KRecorder",
-    "version": "v1.0.1",
-    "description": "Lightweight built-in Geometry Dash recorder - record gameplay without OBS. Press F9 to start/stop, tiny red indicator, hardware encoding where available.",
-    "repository": "https://github.com/kobi/krecorder",
-    "tags": [
-        "utility",
-        "recording",
-        "video"
-    ],
+    "id": "kobi.practiceme",
+    "name": "PracticeMe",
+    "version": "v1.0.0",
+    "description": "Your personal practice assistant — discovers which parts of a level you struggle with and recommends what to practice. Lightweight, Practice Mode focused, adaptive.",
+    "repository": "https://github.com/its-Kobi/PracticeMe",
+    "tags": ["utility", "practice", "analysis"],
     "dependencies": {
         "geode.node-ids": ">=v1.23.3"
     },
-    "settings": {
-        "recording-enabled": {
-            "name": "Recording Enabled",
-            "description": "Master toggle",
-            "type": "bool",
-            "default": true
-        },
-        "recording-hotkey": {
-            "name": "Recording Hotkey",
-            "description": "Key to toggle recording (default F9)",
-            "type": "string",
-            "default": "F9"
-        },
-        "overlay-enabled": {
-            "name": "Show Recording Indicator",
-            "description": "Show small red dot while recording",
-            "type": "bool",
-            "default": true
-        },
-        "overlay-position": {
-            "name": "Indicator Position",
-            "description": "Corner for indicator",
-            "type": "string",
-            "default": "top-right",
-            "one-of": [
-                "top-left",
-                "top-right",
-                "bottom-left",
-                "bottom-right"
-            ]
-        },
-        "video-fps": {
-            "name": "FPS",
-            "description": "Recording FPS",
-            "type": "int",
-            "default": 60,
-            "min": 15,
-            "max": 240
-        },
-        "video-width": {
-            "name": "Width",
-            "description": "Output width (0=native)",
-            "type": "int",
-            "default": 1920,
-            "min": 0,
-            "max": 3840
-        },
-        "video-height": {
-            "name": "Height",
-            "description": "Output height (0=native)",
-            "type": "int",
-            "default": 1080,
-            "min": 0,
-            "max": 2160
-        },
-        "video-bitrate": {
-            "name": "Bitrate (kbps)",
-            "description": "Video bitrate kbps",
-            "type": "int",
-            "default": 8000,
-            "min": 1000,
-            "max": 50000
-        },
-        "video-format": {
-            "name": "Container",
-            "description": "MP4 or MKV (MKV is safer if game crashes)",
-            "type": "string",
-            "default": "mp4",
-            "one-of": [
-                "mp4",
-                "mkv"
-            ]
-        },
-        "video-codec": {
-            "name": "Codec",
-            "description": "Preferred codec",
-            "type": "string",
-            "default": "auto",
-            "one-of": [
-                "auto",
-                "h264",
-                "hevc"
-            ]
-        },
-        "output-dir": {
-            "name": "Output Directory",
-            "description": "Where recordings are saved (empty = Desktop/KRecorder)",
-            "type": "string",
-            "default": ""
-        },
-        "audio-enabled": {
-            "name": "Record Game Audio (Experimental)",
-            "description": "Capture game audio (legacy, use Audio Mode)",
-            "type": "bool",
-            "default": false
-        },
-        "audio-mode": {
-            "name": "Audio Mode",
-            "description": "Game Audio / Microphone / Both / Disabled - runs on separate thread, no game lag",
-            "type": "string",
-            "default": "game",
-            "one-of": [
-                "disabled",
-                "game",
-                "mic",
-                "game+mic"
-            ]
-        },
-        "audio-mic-device": {
-            "name": "Microphone Device",
-            "description": "Mic device name (empty = default)",
-            "type": "string",
-            "default": ""
-        }
-    },
     "resources": {
-        "files": [
-            "resources/*"
-        ]
+        "files": ["resources/*"]
     },
-    "developers": [
-        "KOBI"
-    ]
+    "developers": ["KOBI"],
+    "settings": {}
 }

@@ -1,12 +1,13 @@
-# v1.0.0
-- Initial release
-- Async capture pipeline (D3D11 Desktop Duplication -> queue -> WMF encoder)
-- Overlay indicator excluded from capture
-- Hotkey toggle (F9), configurable
-- Hardware encoding with software fallback
-- Graceful error handling
+# Changelog
 
-# v1.0.1
-- Fix F9 hotkey debounce and polling (was never triggered)
-- Default output now Desktop/KRecorder -> .mp4
-- Added main menu KRecorder button (MenuLayer hook)
+## v1.0.0
+- Initial release of PracticeMe by KOBI
+- Practice Mode focused tracking (deaths, passes, starts, best progress)
+- Section analysis with HIGH/MEDIUM/LOW/GOOD priorities
+- Recommended practice ranges
+- Adaptive learning as player improves
+- Session history
+- Data confidence indicators
+- Reliable level identification (official + custom)
+- Lightweight persistent storage with corruption handling
+- LevelInfoLayer button + PracticeMe popup (NO DATA state + full analysis)
